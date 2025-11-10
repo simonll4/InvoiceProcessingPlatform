@@ -1,0 +1,55 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Virtual environments
+venv/
+ENV/
+env/
+.venv
+.conda/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Git
+.git/
+.gitignore
+
+# Documentation
+README.md
+LICENSE
+*.md
+!requirements.txt
+
+# Tests
+test_*.py
+tests/
+
+# Data
+datasets/
+data/*.db
+*.json
+
+# Logs
+*.log
+logs/
+
+# Docker
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# Scripts
+*.sh
+
+# Temporary
+*.tmp
+*.temp
+.cache/

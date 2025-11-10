@@ -1,0 +1,32 @@
+services:
+  api:
+    build:
+      context: ..
+      dockerfile: services/api/Dockerfile
+    container_name: ocr-llm-api
+    restart: unless-stopped
+    ports:
+      - "8001:8000"
+    env_file:
+      - ../configs/env/.env
+    environment:
+      DB_URL: ${DB_URL:-sqlite:///data/app.db}
+      UPLOAD_DIR: ${UPLOAD_DIR:-data/uploads}
+      PROCESSED_DIR: ${PROCESSED_DIR:-data/processed}
+      GROQ_MODEL: ${GROQ_MODEL:-llama-3.3-70b-versatile}
+      GROQ_API_BASE: ${GROQ_API_BASE:-https://api.groq.com/openai/v1}
+      GROQ_ALLOW_STUB: ${GROQ_ALLOW_STUB:-true}
+      DEFAULT_CURRENCY: ${DEFAULT_CURRENCY:-USD}
+      MAX_CONCURRENCY: ${MAX_CONCURRENCY:-1}
+      PDF_OCR_DPI: ${PDF_OCR_DPI:-220}
+      PDF_OCR_MAX_PAGES: ${PDF_OCR_MAX_PAGES:-1}
+      PORT: 8000
+    volumes:
+      - ../data:/app/data
+      - ../datasets:/app/datasets:ro
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
