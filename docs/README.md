@@ -28,12 +28,24 @@ pip install -r requirements.txt
 cp configs/env/.env.example configs/env/.env
 python -m services.api.app.main  # API + UI en http://localhost:8000
 ```
-## CLI incluida
+## Ejecutar el pipeline desde Python
 ```bash
-python -m scripts.pipeline_cli extract datasets/donut_samples/donut_train_0004.png --out out.json
-python -m scripts.pipeline_cli batch datasets/donut_samples --pattern "*.png"
-python -m scripts.pipeline_cli test-samples
-python -m scripts.pipeline_cli fetch-donut --split train --limit 10 --out datasets/donut_samples
+python - <<'PY'
+from services.pipeline.service.pipeline import run_pipeline
+from pprint import pprint
+
+sample = "datasets/donut_samples/donut_train_0004.png"
+pprint(run_pipeline(sample))
+PY
+```
+
+## Descarga rápida de samples Donut
+```bash
+python - <<'PY'
+from services.pipeline.datasets.donut_loader import download_donut_samples
+
+download_donut_samples(out_dir="datasets/donut_samples", split="train", limit=10)
+PY
 ```
 ## API
 - `GET /` devuelve la SPA estática.
@@ -76,7 +88,7 @@ services/
   pipeline/       # Pipeline OCR + Groq + persistencia
 configs/env/      # Variables de entorno
 infra/            # docker-compose.yml y orquestación
-scripts/          # CLI Typer
+scripts/          # Espacio para entrypoints propios (sin CLI oficial)
 data/             # app.db + uploads/processed
 README.md         # Descripción general
 START.md          # Guía rápida
@@ -84,5 +96,5 @@ START.md          # Guía rápida
 
 ## Próximos pasos
 - Revisa `START.md` para checklist de despliegue.
-- Ejecuta `python -m scripts.pipeline_cli test-samples` para validar con ejemplos.
+- Ejecuta el snippet de Python anterior para validar con un sample local.
 - Configura `GROQ_API_KEY` antes de despliegues serios.

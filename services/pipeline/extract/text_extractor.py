@@ -25,10 +25,12 @@ class PageText:
 
 
 def _clean_lines(raw: str) -> List[str]:
+    # Normalize pdfminer/pytesseract output by removing blank lines and trimming whitespace.
     return [line.strip() for line in raw.splitlines() if line.strip()]
 
 
 def extract_pdf_text(path: str, max_pages: int | None = None) -> List[PageText]:
+    # First attempt: structured extraction via pdfminer; fall back to OCR if the signal is weak.
     laparams = LAParams(line_margin=0.2, word_margin=0.1, char_margin=1.0)
     with open(path, "rb") as fp:
         buffer = io.StringIO()
@@ -60,16 +62,18 @@ def extract_image_text(path: str) -> List[PageText]:
 
 
 def _ocr_page(image: Image.Image, page_number: int) -> PageText:
+    # Apply lightweight preprocessing before handing the bitmap to Tesseract.
     gray = image.convert("L")
     np_img = np.array(gray)
     processed = _binarize(np_img)
-    text = pytesseract.image_to_string(processed, lang="eng+spa", config="--psm 6")
+    text = pytesseract.image_to_string(processed, lang="eng", config="--psm 6")
     lines = _clean_lines(text)
     logger.debug("OCR page %s extracted %s lines", page_number, len(lines))
     return PageText(page=page_number, lines=lines)
 
 
 def _binarize(img: np.ndarray) -> Image.Image:
+    # Simple thresholding keeps the OCR stack deterministic and dependency-free.
     if img.dtype != np.uint8:
         img = img.astype(np.uint8)
     thresh = 200
@@ -78,6 +82,7 @@ def _binarize(img: np.ndarray) -> Image.Image:
 
 
 def join_pages(pages: List[PageText]) -> str:
+    # Annotate each page so downstream prompts retain pagination context.
     sections = []
     for page in pages:
         sections.append(f"=== Page {page.page} ===\n" + page.join())

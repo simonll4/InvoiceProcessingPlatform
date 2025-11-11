@@ -15,10 +15,17 @@ default_root = os.path.join(os.path.dirname(__file__), "..", "..")
 if default_root not in sys.path:
     sys.path.insert(0, default_root)
 
-from services.pipeline.config.settings import GROQ_ALLOW_STUB, GROQ_API_BASE, GROQ_API_KEY, GROQ_MODEL  # noqa: E402
+from services.pipeline.config.settings import (
+    GROQ_ALLOW_STUB,
+    GROQ_API_BASE,
+    GROQ_API_KEY,
+    GROQ_MODEL,
+)  # noqa: E402
 
 
-def call_groq(messages: List[Dict], temperature: float = 0.0, max_tokens: int = 4096) -> str:
+def call_groq(
+    messages: List[Dict], temperature: float = 0.0, max_tokens: int = 4096
+) -> str:
     """Call the Groq Chat Completions API with simple exponential backoff."""
     if not GROQ_API_KEY:
         if GROQ_ALLOW_STUB:
@@ -39,6 +46,7 @@ def call_groq(messages: List[Dict], temperature: float = 0.0, max_tokens: int = 
         "response_format": {"type": "json_object"},
     }
 
+    # Retry a handful of times to smooth over transient throttling or network errors.
     for attempt in range(4):
         try:
             logger.debug(f"Calling Groq API (attempt {attempt + 1})...")
@@ -51,7 +59,7 @@ def call_groq(messages: List[Dict], temperature: float = 0.0, max_tokens: int = 
                 return content
 
             if response.status_code in (429, 500, 502, 503):
-                wait_time = 2 ** attempt
+                wait_time = 2**attempt
                 logger.warning(
                     "Groq API error {code}, retrying in {wait}s (attempt {idx}/4)",
                     code=response.status_code,
@@ -71,31 +79,39 @@ def call_groq(messages: List[Dict], temperature: float = 0.0, max_tokens: int = 
         except requests.exceptions.Timeout:
             logger.warning("Groq API timeout (attempt {idx}/4)", idx=attempt + 1)
             if attempt < 3:
-                time.sleep(2 ** attempt)
+                time.sleep(2**attempt)
                 continue
             raise
 
         except Exception as exc:
             logger.error("Groq API exception: {error}", error=exc)
             if attempt < 3:
-                time.sleep(2 ** attempt)
+                time.sleep(2**attempt)
                 continue
             raise
 
     raise RuntimeError("Groq API call failed after all retries")
-    raise RuntimeError("Groq API call failed after all retries")
 
 
 def _generate_stub_response(messages: List[Dict]) -> str:
+    # Offline fallback that infers a minimal invoice payload from the prompt text itself.
     user_payload = _extract_user_content(messages)
     vendor = _infer_vendor(user_payload)
     invoice_number = _extract_invoice_number(user_payload)
     invoice_date = _extract_date(user_payload)
-    subtotal = _find_amount(user_payload, ["subtotal", "sub total", "importe neto", "net amount"])
-    tax = _find_amount(user_payload, ["tax", "iva", "vat"])
+    subtotal = _find_amount(
+        user_payload, ["subtotal", "sub total", "net amount", "net subtotal"]
+    )
+    tax = _find_amount(user_payload, ["tax", "vat", "sales tax"])
     total = _find_amount(
         user_payload,
-        ["amount due", "balance due", "total", "importe total", "total due", "total a pagar"],
+        [
+            "amount due",
+            "balance due",
+            "total",
+            "total due",
+            "amount payable",
+        ],
     )
 
     if total is None:
@@ -134,12 +150,12 @@ def _generate_stub_response(messages: List[Dict]) -> str:
                 "qty": 1.0,
                 "unit_price_cents": _to_cents(total),
                 "line_total_cents": _to_cents(total),
-                "category": "Otros",
+                "category": "Other",
             }
         ],
         "notes": {
             "warnings": [
-                "Groq stub activo: define GROQ_API_KEY para habilitar el extractor real.",
+                "Groq stub enabled: set GROQ_API_KEY to enable the real extractor.",
             ],
             "confidence": 0.0,
         },
@@ -157,7 +173,9 @@ def _extract_user_content(messages: List[Dict]) -> str:
 
 def _infer_vendor(text: str) -> str:
     for line in _iter_lines(text):
-        if len(line) > 2 and not any(keyword in line.lower() for keyword in ("invoice", "factura", ":")):
+        if len(line) > 2 and not any(
+            keyword in line.lower() for keyword in ("invoice", ":")
+        ):
             return line[:80]
     return "Demo Vendor"
 
@@ -166,8 +184,6 @@ def _extract_invoice_number(text: str) -> Optional[str]:
     patterns = [
         r"invoice\s*no\.?\s*([\w-]+)",
         r"invoice\s*#\s*([\w-]+)",
-        r"factura\s*n[oº]\.?\s*([\w-]+)",
-        r"n[oº]\.?\s*de\s*factura\s*([\w-]+)",
     ]
     lower = text.lower()
     for pattern in patterns:
@@ -206,6 +222,7 @@ def _find_amount(text: str, keywords: List[str]) -> Optional[Decimal]:
 
 
 def _extract_number(text: str) -> Optional[Decimal]:
+    # Normalise locale-dependent separators before converting to Decimal.
     match = re.search(r"[-+]?\d[\d., ]*", text)
     if not match:
         return None
@@ -232,6 +249,7 @@ def _extract_number(text: str) -> Optional[Decimal]:
 
 
 def _to_cents(value: Optional[Decimal]) -> int:
+    # Keep monetary values as integer cents to align with the Pydantic schema.
     if value is None:
         return 0
     return int((value * 100).quantize(Decimal("1")))

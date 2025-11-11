@@ -7,7 +7,16 @@ from contextlib import contextmanager
 from typing import Optional
 
 from loguru import logger
-from sqlalchemy import Column, Float, ForeignKey, Integer, String, Text, create_engine, select
+from sqlalchemy import (
+    Column,
+    Float,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    create_engine,
+    select,
+)
 from sqlalchemy.orm import declarative_base, relationship, sessionmaker
 
 from services.pipeline.config.settings import DB_URL
@@ -38,7 +47,9 @@ class Document(Base):
     confidence = Column(Float, nullable=True)
     warnings = Column(Text, nullable=True)
 
-    items = relationship("InvoiceItem", cascade="all, delete-orphan", back_populates="document")
+    items = relationship(
+        "InvoiceItem", cascade="all, delete-orphan", back_populates="document"
+    )
 
 
 class InvoiceItem(Base):
@@ -56,6 +67,7 @@ class InvoiceItem(Base):
     document = relationship("Document", back_populates="items")
 
 
+# Configure the shared engine/session factory used across the service layer.
 engine = create_engine(DB_URL, future=True)
 SessionLocal = sessionmaker(bind=engine, expire_on_commit=False)
 
@@ -69,6 +81,7 @@ init_db()
 
 @contextmanager
 def session_scope():
+    # Unit-of-work helper so callers don't forget to commit/rollback sessions.
     session = SessionLocal()
     try:
         yield session
@@ -81,16 +94,22 @@ def session_scope():
 
 
 def get_document_by_hash(file_hash: Optional[str]) -> Optional[dict]:
+    # Basic caching layer: reuse previous Groq results for identical uploads.
     if not file_hash:
         return None
     with session_scope() as session:
-        result = session.execute(select(Document).where(Document.file_hash == file_hash)).scalar_one_or_none()
+        result = session.execute(
+            select(Document).where(Document.file_hash == file_hash)
+        ).scalar_one_or_none()
         if not result:
             return None
         return json.loads(result.raw_json)
 
 
-def save_document(path: str, file_hash: Optional[str], raw_text: str, payload: dict) -> int:
+def save_document(
+    path: str, file_hash: Optional[str], raw_text: str, payload: dict
+) -> int:
+    # Persist both the denormalised JSON and the structured tables for querying/reporting.
     warnings = None
     confidence = None
     notes = payload.get("notes")
@@ -137,5 +156,3 @@ def save_document(path: str, file_hash: Optional[str], raw_text: str, payload: d
 
         logger.info("Persisted document %s", doc.id)
         return doc.id
-
-

@@ -4,6 +4,7 @@ from typing import Optional
 
 def compute_file_hash(path: str, chunk_size: int = 1024 * 1024) -> Optional[str]:
     try:
+        # Stream the file so large uploads do not exhaust memory while hashing.
         h = hashlib.sha256()
         with open(path, "rb") as f:
             while True:

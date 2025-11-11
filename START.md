@@ -35,14 +35,27 @@ python -m services.api.app.main  # UI + API en http://localhost:8000
 
 La UI estática se sirve desde FastAPI, así que no se necesita Nginx ni un proyecto `ui/` aparte.
 
-## 3. CLI del pipeline
+## 3. Procesar el pipeline desde Python
+
+Aunque se retiró la CLI, aún puedes probar el pipeline directamente desde Python:
 
 ```bash
-python -m scripts.pipeline_cli test-samples
-python -m scripts.pipeline_cli extract datasets/donut_samples/donut_train_0004.png --out out.json
-python -m scripts.pipeline_cli batch datasets/donut_samples --pattern "*.png"
-python -m scripts.pipeline_cli fetch-donut --split train --limit 10 --out datasets/donut_samples
+python - <<'PY'
+from services.pipeline.service.pipeline import run_pipeline
+from pprint import pprint
+
+result = run_pipeline("datasets/donut_samples/donut_train_0004.png")
+pprint(result)
+PY
 ```
+> Asegúrate de tener muestras en `datasets/donut_samples/` (usa tu propio dataset o sube archivos desde la UI).  
+> Para descargar ejemplos del dataset Donut rápidamente:
+> ```bash
+> python - <<'PY'
+> from services.pipeline.datasets.donut_loader import download_donut_samples
+> download_donut_samples(out_dir="datasets/donut_samples", split="train", limit=10)
+> PY
+> ```
 
 ## 4. Chequeos rápidos
 
@@ -60,7 +73,7 @@ python -m scripts.pipeline_cli fetch-donut --split train --limit 10 --out datase
 
 1. Abre la UI (`http://localhost:8001`) y sube un PDF/imagen de prueba.
 2. Revisa `docs/README.md` para entender el flujo completo y las variables disponibles.
-3. Automatiza llamadas batch desde la CLI o integra el endpoint `/api/extract` en tus pipelines.
+3. Automatiza llamadas batch conectándote al endpoint `/api/extract` o creando tus propios scripts que importen `run_pipeline`.
 
 ---
 

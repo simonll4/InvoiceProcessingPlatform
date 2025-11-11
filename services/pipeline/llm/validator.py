@@ -17,17 +17,19 @@ class InvalidGroqResponse(Exception):
 def parse_response(raw: str) -> InvoiceV1:
     raw = raw.strip()
     if raw.startswith("```"):
+        # Accept markdown-formatted responses by trimming the surrounding code block.
         raw = raw.strip("`").strip()
         if raw.startswith("json"):
             raw = raw[4:].strip()
     try:
         payload: Dict[str, Any] = json.loads(raw)
     except json.JSONDecodeError as exc:
-        raise InvalidGroqResponse("Groq devolvió JSON inválido") from exc
+        raise InvalidGroqResponse("Groq returned invalid JSON") from exc
 
     try:
+        # Let Pydantic handle schema validation so we get consistent error messages.
         validated = validate_invoice_payload(payload)
         logger.debug("Groq response validated successfully")
         return validated
     except Exception as exc:  # noqa: BLE001
-        raise InvalidGroqResponse("Groq respondió datos fuera de contrato") from exc
+        raise InvalidGroqResponse("Groq returned data outside the contract") from exc

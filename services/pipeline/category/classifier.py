@@ -8,13 +8,23 @@ from .rules import CATEGORY_KEYWORDS, CATEGORY_ORDER, VENDOR_HINTS
 
 
 def _normalize(text: str) -> str:
-    return (text or "").lower().replace("á", "a").replace("é", "e").replace("í", "i").replace("ó", "o").replace("ú", "u")
+    # Basic accent folding ensures matches succeed even if OCR introduces diacritics.
+    return (
+        (text or "")
+        .lower()
+        .replace("á", "a")
+        .replace("é", "e")
+        .replace("í", "i")
+        .replace("ó", "o")
+        .replace("ú", "u")
+    )
 
 
 def classify_item(description: str, vendor_name: str | None = None) -> Optional[str]:
     desc_norm = _normalize(description)
     vendor_norm = _normalize(vendor_name or "")
 
+    # Prioritise vendor-level hints when available.
     for hint, category in VENDOR_HINTS.items():
         if hint in vendor_norm:
             return category

@@ -6,14 +6,15 @@ from datasets import load_dataset
 from PIL import Image
 
 
-def download_donut_samples(out_dir: str = "datasets/donut_samples",
-                           split: str = "train",
-                           limit: int = 10) -> List[str]:
+def download_donut_samples(
+    out_dir: str = "datasets/donut_samples", split: str = "train", limit: int = 10
+) -> List[str]:
     """Download a small subset of katanaml-org/invoices-donut-data-v1.
 
     Saves images to PNG files and a sidecar JSON with the remaining fields.
     Returns list of saved image paths.
     """
+    # Thin wrapper around the public Donut demo dataset for quick experiments.
     ds = load_dataset("katanaml-org/invoices-donut-data-v1", split=split)
     os.makedirs(out_dir, exist_ok=True)
 

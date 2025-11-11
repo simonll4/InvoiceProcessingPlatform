@@ -10,16 +10,18 @@ def system_prompt() -> str:
     )
 
 
-def user_prompt(source: str, ocr_text: str, candidates: list, json_schema: dict, currency_hint: str) -> str:
+def user_prompt(
+    source: str, ocr_text: str, candidates: list, json_schema: dict, currency_hint: str
+) -> str:
     """User prompt with OCR text and schema"""
     # Limit text to avoid token limits
     text_limit = 8000
     if len(ocr_text) > text_limit:
         ocr_text = ocr_text[:text_limit] + "\n[...truncated...]"
-    
+
     # Format candidates
     candidate_lines = "\n- ".join(candidates[:20]) if candidates else "(none)"
-    
+
     return f"""SOURCE: {source}
 CURRENCY_HINT: {currency_hint}
 
