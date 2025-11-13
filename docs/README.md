@@ -1,6 +1,6 @@
 # OCR-LLM Pipeline
 
-Sistema para extraer campos estructurados de facturas y recibos combinando `pdfminer.six`, Tesseract OCR y Groq (endpoint OpenAI-compatible).
+Sistema para extraer campos estructurados de facturas y recibos combinando `pdfminer.six`, Tesseract OCR y Groq (endpoint OpenAI-compatible) para la extracción LLM.
 ## Características principales
 - Soporta PDF e imágenes (JPG/PNG/BMP) con detección automática.
 - Extrae texto con `pdfminer.six` y, si es insuficiente, rasteriza y aplica Tesseract (`eng+spa`).
@@ -10,12 +10,13 @@ Sistema para extraer campos estructurados de facturas y recibos combinando `pdfm
 
 ## Quickstart (Docker Compose)
 ```bash
-cp configs/env/.env.example configs/env/.env  # configura tus GROQ_*
+cp configs/env/.env.example configs/env/.env  # incluye Groq para el pipeline y el assistant
 docker compose -f infra/docker-compose.yml up -d --build
 # UI:  http://localhost:8001/
 # API: http://localhost:8001/api/health
 ```
-> **Nota**: si `GROQ_API_KEY` está vacío el servicio responde con un extractor heurístico de baja fidelidad. Define la variable para habilitar Groq real.
+> **Notas**:
+> - Debes definir `PIPELINE_LLM_API_KEY` o `LLM_API_KEY` con tu token de Groq para que el extractor y el asistente funcionen.
 
 ### Probar con curl
 ```bash
@@ -53,13 +54,29 @@ PY
 - `GET /api/warmup` ping ligero para calentar el servicio.
 - `POST /api/extract` acepta `multipart/form-data` con `file` (≤10 MB).
 
+## MCP oficial
+
+El servidor MCP nativo usa el SDK `mcp` y se monta automáticamente dentro de la misma API.
+
+- **Transport HTTP**: `http://localhost:8001/mcp` cuando corres `docker compose -f infra/docker-compose.yml ...`
+- **Herramientas**: `execute_sql_query`, `get_invoice_by_id`, `search_invoices_by_vendor`, `get_top_vendors`, `search_by_text`, `get_invoices_by_date_range`, `get_database_schema`.
+- **Cómo usarlo**: conecta cualquier cliente MCP (por ejemplo `mcp-cli` o integraciones de editores) a esa URL y obtendrás acceso de solo lectura a la base `app.db`.
+
 ## Variables de entorno relevantes
 | Variable | Descripción | Default |
 | --- | --- | --- |
-| `GROQ_API_KEY` | Token Groq para el extractor real. | `""` |
-| `GROQ_API_BASE` | Endpoint Groq OpenAI-compatible. | `https://api.groq.com/openai/v1` |
-| `GROQ_MODEL` | Modelo Groq a usar. | `llama-3.3-70b-versatile` |
-| `GROQ_ALLOW_STUB` | Permite fallback heurístico sin API key. | `true` |
+| `PIPELINE_LLM_PROVIDER` | Proveedor LLM para el pipeline (Groq). | `groq` |
+| `PIPELINE_LLM_API_BASE` | Endpoint OpenAI-compatible (Groq). | `https://api.groq.com/openai/v1` |
+| `PIPELINE_LLM_MODEL` | Modelo Groq para extracción. | `llama-3.1-8b-instant` |
+| `PIPELINE_LLM_API_KEY` | Token Groq obligatorio. | `""` |
+| `PIPELINE_LLM_ALLOW_STUB` | Permite fallback heurístico en pipeline. | `false` |
+| `LLM_API_BASE` | Endpoint Groq para el assistant. | `https://api.groq.com/openai/v1` |
+| `LLM_MODEL` | Modelo Groq para el assistant. | `llama-3.1-8b-instant` |
+| `LLM_API_KEY` | Token Groq del assistant (puede reutilizar el pipeline). | `""` |
+| `RATE_LIMIT_RPM` | Límite de requests por minuto (Groq). | `24` |
+| `RATE_LIMIT_RPD` | Límite de requests por día (Groq). | `11500` |
+| `RATE_LIMIT_TPM` | Tokens por minuto (Groq). | `4800` |
+| `RATE_LIMIT_TPD` | Tokens por día (Groq). | `400000` |
 | `DEFAULT_CURRENCY` | Moneda fallback. | `UNK` |
 | `PDF_OCR_DPI` | DPI al rasterizar PDF antes de OCR. | `300` |
 | `PDF_OCR_MAX_PAGES` | Máx. páginas a rasterizar. | `5` |
@@ -74,7 +91,7 @@ PY
 1. **Ingesta**: detecta tipo (PDF/imagen) y calcula hash SHA-256 para cache.
 2. **Extracción**: usa `pdfminer.six`; si el texto es corto, rasteriza y aplica Tesseract.
 3. **Prompt**: construye mensajes `system`/`user` con texto y esquema `invoice_v1`.
-4. **LLM**: invoca Groq (o stub) y valida JSON con Pydantic.
+4. **LLM**: invoca Groq (OpenAI-compatible) y valida JSON con Pydantic.
 5. **Normalización**: corrige moneda, clasifica ítems y agrega warnings si hay diferencias.
 6. **Persistencia**: guarda texto/JSON en SQLite (`data/app.db`).
 ## Tips operativos
@@ -85,7 +102,7 @@ PY
 ```
 services/
   api/            # FastAPI + UI estática
-  pipeline/       # Pipeline OCR + Groq + persistencia
+  pipeline/       # Pipeline OCR + LLM + persistencia
 configs/env/      # Variables de entorno
 infra/            # docker-compose.yml y orquestación
 scripts/          # Espacio para entrypoints propios (sin CLI oficial)
