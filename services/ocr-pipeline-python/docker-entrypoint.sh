@@ -2,7 +2,7 @@
 set -e
 
 # Ensure data directories exist with correct permissions
-mkdir -p /app/data/uploads /app/data/processed /app/data/cache
+mkdir -p /app/data/uploads
 
 # Ensure the database directory is writable
 # If the database file doesn't exist, SQLAlchemy will create it

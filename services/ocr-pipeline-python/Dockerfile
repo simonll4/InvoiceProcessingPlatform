@@ -35,7 +35,7 @@ COPY docker-entrypoint.sh /usr/local/bin/
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
 # Create data directories (but don't create the DB file - it will be created at runtime)
-RUN mkdir -p /app/data/uploads /app/data/processed /app/data/cache
+RUN mkdir -p /app/data/uploads
 
 ENV PYTHONPATH="/app"
 

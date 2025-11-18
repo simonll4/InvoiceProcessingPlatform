@@ -24,14 +24,16 @@ def _detect_project_root() -> Path:
 
 
 PROJECT_ROOT = _detect_project_root()
-ENV_PATH = PROJECT_ROOT / "configs" / "env" / ".env"
+
+# Load .env from the service directory (not from a centralized configs folder)
+SERVICE_ROOT = Path(__file__).resolve().parent.parent.parent  # src/pipeline/config -> src/pipeline -> src -> service root
+ENV_PATH = SERVICE_ROOT / ".env"
 if ENV_PATH.exists():
     load_dotenv(ENV_PATH)
 else:  # pragma: no cover - fallback for tests
     load_dotenv()
 
 DATA_ROOT = PROJECT_ROOT / "data"
-CACHE_DIR = DATA_ROOT / "cache"
 
 
 def _resolve_path(value: str | Path) -> Path:
@@ -43,16 +45,13 @@ def _resolve_path(value: str | Path) -> Path:
         path = PROJECT_ROOT / path
     return path
 
-    # Directories used across ingestion, caching, and persistence.
+    # Directories used across ingestion and persistence.
 
 
 UPLOAD_DIR = _resolve_path(os.getenv("UPLOAD_DIR", DATA_ROOT / "uploads"))
-PROCESSED_DIR = _resolve_path(os.getenv("PROCESSED_DIR", DATA_ROOT / "processed"))
 DB_STORAGE_DIR = _resolve_path(os.getenv("DB_DIR", DATA_ROOT))
 
-CACHE_DIR.mkdir(parents=True, exist_ok=True)
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
-PROCESSED_DIR.mkdir(parents=True, exist_ok=True)
 DB_STORAGE_DIR.mkdir(parents=True, exist_ok=True)
 
 db_path_env = os.getenv("DB_PATH")

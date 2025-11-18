@@ -8,12 +8,7 @@ services:
     ports:
       - "${API_HOST_PORT:-7001}:8000"
     env_file:
-      - ./configs/env/.env
-    environment:
-      # Database
-      DB_URL: ${DB_URL:-sqlite:///data/app.db}
-      DB_PATH: ${DB_PATH:-/app/data/app.db}
-
+      - ./services/ocr-pipeline-python/.env
     volumes:
       - ./data:/app/data
       - ./datasets:/app/datasets:ro
@@ -31,23 +26,31 @@ services:
       dockerfile: Dockerfile
     container_name: invoice-agent-api
     restart: unless-stopped
+    ports:
+      - "7003:7003"
     env_file:
-      - ./configs/env/.env
-    environment:
-      INVOICE_AGENT_API_PORT: 8100
-      INVOICE_AGENT_MCP_ENDPOINT: ${INVOICE_AGENT_MCP_ENDPOINT:-http://mcp-sqlite:3000}
+      - ./services/invoice-agent-python/.env
+    networks:
+      - default
+    depends_on:
+      - mcp-sqlite
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:7003/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
   mcp-sqlite:
     build:
-      context: ./services/mcp-invoices-ts
+      context: ./services/sqlite-mcp-server
       dockerfile: Dockerfile
     container_name: mcp-sqlite
     restart: unless-stopped
+    ports:
+      - "7002:7002"
     env_file:
-      - ./configs/env/.env
-    environment:
-      APP_DB_PATH: /app/data/app.db
-      MCP_HTTP_PORT: 3000
+      - ./services/sqlite-mcp-server/.env
     volumes:
       - ./data:/app/data:ro
 

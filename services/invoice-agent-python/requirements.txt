@@ -2,6 +2,9 @@ fastapi
 uvicorn[standard]
 loguru
 langgraph
+langchain-groq
+langchain-core
 openai
 pydantic
+pydantic-settings
 httpx
